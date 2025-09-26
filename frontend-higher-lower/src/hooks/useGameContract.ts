@@ -111,41 +111,23 @@ export function useGameContract(isConnected: boolean, address: string | null) {
       
       const { ethers } = await import('ethers');
       
-      console.log('🚀 Preparing FHEVM-only deposit...');
+      console.log('🚀 Preparing simple deposit...');
       
-      // Convert amount to wei for encryption
+      // Convert amount to wei
       const amountWei = ethers.parseEther(amount);
       
-      // For FHEVM contract on Sepolia, we need to create proper encrypted input
-      // Since real FHEVM encryption isn't available on Sepolia, we'll use placeholder values
-      console.log('🔐 Creating FHEVM parameters...');
-      
-      // Create encrypted amount as bytes32 (32-byte representation of the amount)
-      const encryptedAmount = ethers.zeroPadValue(ethers.toBeHex(amountWei), 32);
-      const inputProof = '0x'; // Empty proof for Sepolia testing
-      
       console.log('📊 Amount in wei:', amountWei.toString());
-      console.log('🔒 Encrypted amount:', encryptedAmount);
       
-      // Estimate gas - try FHEVM first, fallback to simple deposit
+      // Force use of simple deposit for reliable functionality
       let estimatedGas;
-      let useSimpleDeposit = false;
       
       try {
-        // Try FHEVM deposit first
-        estimatedGas = await contract.deposit.estimateGas(encryptedAmount, inputProof, { value: amountWei });
-        console.log('✅ FHEVM gas estimation successful:', estimatedGas.toString());
-      } catch (fhevmError: any) {
-        console.log('⚠️  FHEVM failed, trying simple deposit:', fhevmError.message);
-        try {
-          // Fallback to simple deposit
-          estimatedGas = await contract.simpleDeposit.estimateGas({ value: amountWei });
-          useSimpleDeposit = true;
-          console.log('✅ Simple deposit estimation successful:', estimatedGas.toString());
-        } catch (simpleError: any) {
-          console.error('❌ Both deposits failed:', simpleError);
-          throw new Error(`Gas estimation failed: ${simpleError.message || simpleError}`);
-        }
+        // Use simple deposit directly
+        estimatedGas = await contract.simpleDeposit.estimateGas({ value: amountWei });
+        console.log('✅ Simple deposit estimation successful:', estimatedGas.toString());
+      } catch (simpleError: any) {
+        console.error('❌ Simple deposit estimation failed:', simpleError);
+        throw new Error(`Gas estimation failed: ${simpleError.message || simpleError}`);
       }
       
       // Add timeout for deposit transaction
@@ -154,24 +136,14 @@ export function useGameContract(isConnected: boolean, address: string | null) {
       });
       
       const depositPromise = (async () => {
-        console.log('📋 Calling contract deposit...', useSimpleDeposit ? '(Simple)' : '(FHEVM)');
+        console.log('📋 Calling contract simpleDeposit...');
         
-        let tx;
-        if (useSimpleDeposit) {
-          // Use simple deposit fallback
-          tx = await contract.simpleDeposit({ 
-            value: amountWei,
-            gasLimit: estimatedGas + BigInt(50000),
-            gasPrice: ethers.parseUnits('20', 'gwei')
-          });
-        } else {
-          // Use FHEVM deposit
-          tx = await contract.deposit(encryptedAmount, inputProof, { 
-            value: amountWei,
-            gasLimit: estimatedGas + BigInt(100000),
-            gasPrice: ethers.parseUnits('20', 'gwei')
-          });
-        }
+        // Always use simple deposit for reliability
+        const tx = await contract.simpleDeposit({ 
+          value: amountWei,
+          gasLimit: estimatedGas + BigInt(50000),
+          gasPrice: ethers.parseUnits('25', 'gwei') // Increased gas price
+        });
         
         console.log('📦 Transaction sent:', tx.hash);
         console.log('⏳ Waiting for confirmation...');
