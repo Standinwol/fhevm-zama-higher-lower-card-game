@@ -21,6 +21,7 @@ interface HigherLowerGameProps {
   onMakeGuess: (gameId: number, isHigher: boolean) => Promise<{ correct: boolean; newCard: number } | null>;
   onCashOut: (gameId: number) => Promise<boolean>;
   onGameResult?: (result: GameResult) => void;
+  onWithdraw?: () => void;
   isLoading: boolean;
   error: string | null;
 }
@@ -32,6 +33,7 @@ export const HigherLowerGame: React.FC<HigherLowerGameProps> = ({
   onMakeGuess,
   onCashOut,
   onGameResult,
+  onWithdraw,
   isLoading,
   error
 }) => {
@@ -273,13 +275,24 @@ export const HigherLowerGame: React.FC<HigherLowerGameProps> = ({
           )}
 
           {score > 0 && (
-            <div className="mt-4">
+            <div className="mt-4 space-y-2">
               <button
                 onClick={cashOut}
-                className="bg-gradient-to-r from-yellow-600 to-orange-600 px-6 py-3 rounded-xl font-bold"
+                className="bg-gradient-to-r from-yellow-600 to-orange-600 px-6 py-3 rounded-xl font-bold w-full"
               >
                 Cash Out ({(wager + score * wager * 0.8).toFixed(3)} ETH)
               </button>
+              
+              {/* Show withdraw button after successful cash out */}
+              {currentBalance > 0 && onWithdraw && (
+                <button
+                  onClick={onWithdraw}
+                  className="bg-gradient-to-r from-green-600 to-emerald-600 px-6 py-3 rounded-xl font-bold w-full flex items-center justify-center space-x-2"
+                >
+                  <span>💰</span>
+                  <span>Withdraw to Wallet</span>
+                </button>
+              )}
             </div>
           )}
         </div>

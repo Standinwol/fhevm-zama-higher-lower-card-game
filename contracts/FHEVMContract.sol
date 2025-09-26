@@ -375,6 +375,53 @@ contract FHEVMContract is SepoliaConfig {
     }
     
     // ===========================================
+    // WITHDRAWAL FUNCTIONS
+    // ===========================================
+    
+    /**
+     * @dev Withdraw ETH from simple balance to wallet
+     */
+    function withdrawETH(uint256 amount) external {
+        require(amount > 0, "Amount must be greater than 0");
+        require(simpleBalances[msg.sender] >= amount, "Insufficient balance");
+        require(address(this).balance >= amount, "Contract has insufficient ETH");
+        
+        simpleBalances[msg.sender] -= amount;
+        
+        // Transfer ETH to user's wallet
+        (bool success, ) = payable(msg.sender).call{value: amount}("");
+        require(success, "ETH transfer failed");
+        
+        lastActivity[msg.sender] = block.timestamp;
+        emit WithdrawalMade(msg.sender, block.timestamp);
+    }
+    
+    /**
+     * @dev Withdraw all ETH from simple balance to wallet
+     */
+    function withdrawAllETH() external {
+        uint256 balance = simpleBalances[msg.sender];
+        require(balance > 0, "No balance to withdraw");
+        require(address(this).balance >= balance, "Contract has insufficient ETH");
+        
+        simpleBalances[msg.sender] = 0;
+        
+        // Transfer all ETH to user's wallet
+        (bool success, ) = payable(msg.sender).call{value: balance}("");
+        require(success, "ETH transfer failed");
+        
+        lastActivity[msg.sender] = block.timestamp;
+        emit WithdrawalMade(msg.sender, block.timestamp);
+    }
+    
+    /**
+     * @dev Get contract's ETH balance
+     */
+    function getContractETHBalance() external view returns (uint256) {
+        return address(this).balance;
+    }
+    
+    // ===========================================
     // VIEW FUNCTIONS
     // ===========================================
     

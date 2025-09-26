@@ -9,7 +9,7 @@ function App() {
   const { isConnected, address, balance: walletBalance, isLoading: walletLoading, error: walletError, connectWallet, cancelConnection, disconnectWallet } = useWallet();
   
   // Real contract integration
-  const { contractBalance, isLoading: contractLoading, error: contractError, deposit, startGame: startContractGame, makeGuess: makeContractGuess, cashOut: cashOutContract, loadContractBalance } = useGameContract(isConnected, address);
+  const { contractBalance, isLoading: contractLoading, error: contractError, deposit, startGame: startContractGame, makeGuess: makeContractGuess, cashOut: cashOutContract, withdrawETH, withdrawAllETH, loadContractBalance } = useGameContract(isConnected, address);
   
   // Game statistics tracking
   const { stats, recordGameResult, resetStats } = useGameStats(address);
@@ -33,6 +33,96 @@ function App() {
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [depositAmount, setDepositAmount] = useState('');
   const [depositError, setDepositError] = useState<string | null>(null);
+  
+  // Withdrawal modal state
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [withdrawError, setWithdrawError] = useState<string | null>(null);
+
+  const handleWithdraw = async (amount?: string) => {
+    const amountToWithdraw = amount || withdrawAmount;
+    
+    if (!amountToWithdraw || parseFloat(amountToWithdraw) <= 0) {
+      setWithdrawError('Please enter a valid withdrawal amount');
+      return;
+    }
+    
+    const withdrawalAmount = parseFloat(amountToWithdraw);
+    
+    if (withdrawalAmount > currentBalance) {
+      setWithdrawError('Insufficient contract balance for this withdrawal');
+      return;
+    }
+    
+    setWithdrawError(null); // Clear any previous errors
+    
+    try {
+      console.log('🏧 Starting withdrawal process for', amountToWithdraw, 'ETH');
+      console.log('🏦 Current contract balance:', currentBalance, 'ETH');
+      
+      const success = await withdrawETH(amountToWithdraw);
+      
+      if (success) {
+        console.log('✅ Withdrawal successful, clearing modal');
+        setWithdrawAmount('');
+        setShowWithdrawModal(false);
+        setWithdrawError(null);
+        
+        // Additional balance refresh with longer delay for blockchain confirmation
+        console.log('🔄 Refreshing balance after withdrawal...');
+        setTimeout(async () => {
+          if (loadContractBalance) {
+            await loadContractBalance();
+            console.log('🎉 Balance refreshed after withdrawal');
+          }
+        }, 3000); // Increased delay for better blockchain sync
+      } else {
+        console.error('❌ Withdrawal failed - check contract error');
+        setWithdrawError('Transaction failed. Please check your wallet and try again.');
+      }
+    } catch (error) {
+      console.error('💥 Handle withdrawal exception:', error);
+      setWithdrawError(error instanceof Error ? error.message : 'Withdrawal failed');
+    }
+  };
+  
+  const handleWithdrawAll = async () => {
+    if (currentBalance <= 0) {
+      setWithdrawError('No balance available to withdraw');
+      return;
+    }
+    
+    setWithdrawError(null); // Clear any previous errors
+    
+    try {
+      console.log('🏧 Starting withdrawal all process');
+      console.log('🏦 Current contract balance:', currentBalance, 'ETH');
+      
+      const success = await withdrawAllETH();
+      
+      if (success) {
+        console.log('✅ Withdrawal all successful, clearing modal');
+        setWithdrawAmount('');
+        setShowWithdrawModal(false);
+        setWithdrawError(null);
+        
+        // Additional balance refresh with longer delay for blockchain confirmation
+        console.log('🔄 Refreshing balance after withdrawal all...');
+        setTimeout(async () => {
+          if (loadContractBalance) {
+            await loadContractBalance();
+            console.log('🎉 Balance refreshed after withdrawal all');
+          }
+        }, 3000); // Increased delay for better blockchain sync
+      } else {
+        console.error('❌ Withdrawal all failed - check contract error');
+        setWithdrawError('Transaction failed. Please check your wallet and try again.');
+      }
+    } catch (error) {
+      console.error('💥 Handle withdrawal all exception:', error);
+      setWithdrawError(error instanceof Error ? error.message : 'Withdrawal failed');
+    }
+  };
 
   const handleDeposit = async () => {
     if (!depositAmount || parseFloat(depositAmount) <= 0) {
@@ -122,6 +212,17 @@ function App() {
                 >
                   Deposit
                 </button>
+                {currentBalance > 0 && (
+                  <button
+                    onClick={() => {
+                      setShowWithdrawModal(true);
+                      setWithdrawError(null); // Clear any previous errors when opening modal
+                    }}
+                    className="bg-gradient-to-r from-orange-600 to-red-600 px-3 py-2 rounded-lg text-sm font-semibold"
+                  >
+                    Withdraw
+                  </button>
+                )}
                 <button
                   onClick={() => loadContractBalance && loadContractBalance()}
                   className="bg-gradient-to-r from-purple-600 to-pink-600 px-3 py-2 rounded-lg text-sm font-semibold"
@@ -293,6 +394,10 @@ function App() {
             onMakeGuess={handleMakeGuess}
             onCashOut={handleCashOut}
             onGameResult={recordGameResult}
+            onWithdraw={() => {
+              setShowWithdrawModal(true);
+              setWithdrawError(null);
+            }}
             isLoading={contractLoading}
             error={contractError}
           />
@@ -420,6 +525,113 @@ function App() {
                     setShowDepositModal(false);
                     setDepositError(null);
                     setDepositAmount('');
+                  }}
+                  disabled={contractLoading}
+                  className="px-4 py-2 bg-white/10 rounded-lg hover:bg-white/20 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Withdrawal Modal */}
+      {showWithdrawModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowWithdrawModal(false)}>
+          <div className="bg-gradient-to-br from-purple-900 to-blue-900 p-6 rounded-xl border border-white/20 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-xl font-bold mb-4">💰 Withdraw from Contract</h3>
+            <p className="text-sm opacity-70 mb-4">
+              Withdraw ETH from your contract balance back to your wallet.
+            </p>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm mb-2">Amount (ETH)</label>
+                <input
+                  type="number"
+                  step="0.001"
+                  value={withdrawAmount}
+                  onChange={(e) => {
+                    setWithdrawAmount(e.target.value);
+                    setWithdrawError(null); // Clear error when user types
+                  }}
+                  className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2"
+                  placeholder="0.01"
+                  disabled={contractLoading}
+                  max={currentBalance}
+                />
+              </div>
+              
+              <div className="text-xs opacity-70">
+                <div>Available Balance: {currentBalance.toFixed(4)} ETH</div>
+                <div>Gas fees will be deducted from your wallet</div>
+              </div>
+              
+              {/* Error Display */}
+              {withdrawError && (
+                <div className="bg-red-500/20 p-3 rounded-lg border border-red-500/30">
+                  <div className="flex items-center space-x-2 mb-1">
+                    <AlertTriangle className="w-4 h-4 text-red-300" />
+                    <span className="text-red-300 text-sm font-semibold">Withdrawal Error</span>
+                  </div>
+                  <div className="text-red-200 text-xs">{withdrawError}</div>
+                </div>
+              )}
+              
+              {/* Loading State with Time Estimate */}
+              {contractLoading && (
+                <div className="bg-blue-500/20 p-3 rounded-lg border border-blue-500/30">
+                  <div className="flex items-center space-x-2 mb-1">
+                    <RefreshCw className="w-4 h-4 text-blue-300 animate-spin" />
+                    <span className="text-blue-300 text-sm font-semibold">Processing Withdrawal</span>
+                  </div>
+                  <div className="text-blue-200 text-xs">
+                    <div>⏳ Please confirm transaction in MetaMask</div>
+                    <div>Expected time: 10-60 seconds</div>
+                  </div>
+                </div>
+              )}
+              
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => handleWithdraw()}
+                  disabled={!withdrawAmount || parseFloat(withdrawAmount) <= 0 || contractLoading || parseFloat(withdrawAmount) > currentBalance}
+                  className="flex-1 bg-gradient-to-r from-orange-600 to-red-600 px-4 py-2 rounded-lg font-semibold disabled:opacity-50 hover:from-orange-700 hover:to-red-700 transition-all flex items-center justify-center space-x-2"
+                >
+                  {contractLoading ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Processing...</span>
+                    </>
+                  ) : (
+                    'Withdraw'
+                  )}
+                </button>
+                
+                {currentBalance > 0 && (
+                  <button
+                    onClick={handleWithdrawAll}
+                    disabled={contractLoading}
+                    className="bg-gradient-to-r from-red-600 to-pink-600 px-4 py-2 rounded-lg font-semibold disabled:opacity-50 hover:from-red-700 hover:to-pink-700 transition-all flex items-center justify-center space-x-2"
+                  >
+                    {contractLoading ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <span>Processing...</span>
+                      </>
+                    ) : (
+                      'Withdraw All'
+                    )}
+                  </button>
+                )}
+                
+                <button
+                  onClick={() => {
+                    setShowWithdrawModal(false);
+                    setWithdrawError(null);
+                    setWithdrawAmount('');
                   }}
                   disabled={contractLoading}
                   className="px-4 py-2 bg-white/10 rounded-lg hover:bg-white/20 disabled:opacity-50"

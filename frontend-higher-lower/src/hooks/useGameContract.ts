@@ -385,6 +385,219 @@ export function useGameContract(isConnected: boolean, address: string | null) {
     }
   };
 
+  const withdrawETH = async (amount: string): Promise<boolean> => {
+    if (!contract || !address) {
+      console.error('❌ Withdraw precondition failed:', { hasContract: !!contract, hasAddress: !!address });
+      const errorMsg = !address ? 'Please connect your wallet first' : 'Contract not initialized - please refresh and try again';
+      setError(errorMsg);
+      return false;
+    }
+    
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      console.log('🏧 Starting withdrawal of', amount, 'ETH');
+      console.log('💼 To address:', address);
+      console.log('🏦 From contract:', config.contractAddress);
+      
+      const { ethers } = await import('ethers');
+      
+      // Convert amount to wei
+      const amountWei = ethers.parseEther(amount);
+      
+      console.log('📊 Amount in wei:', amountWei.toString());
+      
+      // Check if user has sufficient balance
+      const currentBalance = await contract.getSimpleBalance();
+      console.log('💰 Current balance:', currentBalance.toString());
+      
+      if (currentBalance < amountWei) {
+        throw new Error('Insufficient balance for withdrawal');
+      }
+      
+      // Estimate gas
+      const estimatedGas = await contract.withdrawETH.estimateGas(amountWei);
+      console.log('✅ Gas estimation successful:', estimatedGas.toString());
+      
+      // Set timeout for withdrawal transaction
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Withdrawal timeout after 60 seconds. Please check MetaMask.')), 60000);
+      });
+      
+      const withdrawalPromise = (async () => {
+        console.log('📋 Calling contract withdrawETH...');
+        
+        const tx = await contract.withdrawETH(amountWei, { 
+          gasLimit: estimatedGas + BigInt(50000),
+          gasPrice: ethers.parseUnits('20', 'gwei')
+        });
+        
+        console.log('📦 Transaction sent:', tx.hash);
+        console.log('⏳ Waiting for confirmation...');
+        
+        const receipt = await tx.wait();
+        console.log('✅ Transaction confirmed in block:', receipt.blockNumber);
+        console.log('🎉 Gas used:', receipt.gasUsed.toString());
+        console.log('💰 Status:', receipt.status === 1 ? 'SUCCESS' : 'FAILED');
+        
+        if (receipt.status !== 1) {
+          throw new Error('Transaction failed on blockchain');
+        }
+        
+        return receipt;
+      })();
+      
+      // Race between withdrawal and timeout
+      await Promise.race([withdrawalPromise, timeoutPromise]);
+      
+      // Force refresh balance after successful withdrawal
+      console.log('🔄 Refreshing balance after successful withdrawal...');
+      await loadContractBalance();
+      
+      console.log('✅ Withdrawal completed successfully!');
+      return true;
+      
+    } catch (err: any) {
+      console.error('❌ Withdrawal error details:', {
+        message: err.message,
+        code: err.code,
+        reason: err.reason,
+        data: err.data,
+        error: err
+      });
+      
+      // Enhanced error handling
+      let errorMessage = 'Withdrawal failed';
+      
+      if (err.code === 'ACTION_REJECTED' || err.code === 4001) {
+        errorMessage = 'Transaction rejected by user';
+      } else if (err.message.includes('insufficient funds')) {
+        errorMessage = 'Insufficient funds for transaction + gas fees';
+      } else if (err.message.includes('timeout')) {
+        errorMessage = 'Transaction timeout. Please check MetaMask and network status.';
+      } else if (err.code === 'UNPREDICTABLE_GAS_LIMIT') {
+        errorMessage = 'Transaction may fail. Please check contract state and try again.';
+      } else if (err.message.includes('network')) {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      } else if (err.message.includes('Insufficient balance')) {
+        errorMessage = 'Insufficient balance for withdrawal';
+      } else {
+        const details = err.reason || err.message || 'Unknown error occurred';
+        errorMessage = `Withdrawal failed: ${details}`;
+      }
+      
+      setError(errorMessage);
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const withdrawAllETH = async (): Promise<boolean> => {
+    if (!contract || !address) {
+      console.error('❌ Withdraw all precondition failed:', { hasContract: !!contract, hasAddress: !!address });
+      const errorMsg = !address ? 'Please connect your wallet first' : 'Contract not initialized - please refresh and try again';
+      setError(errorMsg);
+      return false;
+    }
+    
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      console.log('🏧 Starting withdrawal of all ETH');
+      console.log('💼 To address:', address);
+      console.log('🏦 From contract:', config.contractAddress);
+      
+      const { ethers } = await import('ethers');
+      
+      // Check current balance first
+      const currentBalance = await contract.getSimpleBalance();
+      console.log('💰 Current balance:', currentBalance.toString());
+      
+      if (currentBalance === 0n) {
+        throw new Error('No balance available to withdraw');
+      }
+      
+      // Estimate gas
+      const estimatedGas = await contract.withdrawAllETH.estimateGas();
+      console.log('✅ Gas estimation successful:', estimatedGas.toString());
+      
+      // Set timeout for withdrawal transaction
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Withdrawal timeout after 60 seconds. Please check MetaMask.')), 60000);
+      });
+      
+      const withdrawalPromise = (async () => {
+        console.log('📋 Calling contract withdrawAllETH...');
+        
+        const tx = await contract.withdrawAllETH({ 
+          gasLimit: estimatedGas + BigInt(50000),
+          gasPrice: ethers.parseUnits('20', 'gwei')
+        });
+        
+        console.log('📦 Transaction sent:', tx.hash);
+        console.log('⏳ Waiting for confirmation...');
+        
+        const receipt = await tx.wait();
+        console.log('✅ Transaction confirmed in block:', receipt.blockNumber);
+        console.log('🎉 Gas used:', receipt.gasUsed.toString());
+        console.log('💰 Status:', receipt.status === 1 ? 'SUCCESS' : 'FAILED');
+        
+        if (receipt.status !== 1) {
+          throw new Error('Transaction failed on blockchain');
+        }
+        
+        return receipt;
+      })();
+      
+      // Race between withdrawal and timeout
+      await Promise.race([withdrawalPromise, timeoutPromise]);
+      
+      // Force refresh balance after successful withdrawal
+      console.log('🔄 Refreshing balance after successful withdrawal...');
+      await loadContractBalance();
+      
+      console.log('✅ Withdrawal completed successfully!');
+      return true;
+      
+    } catch (err: any) {
+      console.error('❌ Withdrawal error details:', {
+        message: err.message,
+        code: err.code,
+        reason: err.reason,
+        data: err.data,
+        error: err
+      });
+      
+      // Enhanced error handling
+      let errorMessage = 'Withdrawal failed';
+      
+      if (err.code === 'ACTION_REJECTED' || err.code === 4001) {
+        errorMessage = 'Transaction rejected by user';
+      } else if (err.message.includes('insufficient funds')) {
+        errorMessage = 'Insufficient funds for transaction + gas fees';
+      } else if (err.message.includes('timeout')) {
+        errorMessage = 'Transaction timeout. Please check MetaMask and network status.';
+      } else if (err.code === 'UNPREDICTABLE_GAS_LIMIT') {
+        errorMessage = 'Transaction may fail. Please check contract state and try again.';
+      } else if (err.message.includes('network')) {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      } else if (err.message.includes('No balance')) {
+        errorMessage = 'No balance available to withdraw';
+      } else {
+        const details = err.reason || err.message || 'Unknown error occurred';
+        errorMessage = `Withdrawal failed: ${details}`;
+      }
+      
+      setError(errorMessage);
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return {
     contract,
     contractBalance,
@@ -394,6 +607,8 @@ export function useGameContract(isConnected: boolean, address: string | null) {
     startGame,
     makeGuess,
     cashOut,
+    withdrawETH,
+    withdrawAllETH,
     loadContractBalance,
   };
 }
