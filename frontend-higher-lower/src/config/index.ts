@@ -1,7 +1,7 @@
 // Configuration settings for Higher/Lower DApp
 export const config = {
-  // Contract Configuration - FHEVMContract (Unified Solution)
-  contractAddress: '0x4099E173d8fBC5499Ca6fdD0cBfe93524388B557', // New FHEVMContract
+  // Contract Configuration - FHEVMContract (Unified Solution with Withdrawal)
+  contractAddress: '0x77E06E5810aDd5Ee4C3eBc5FB3525Ee92157aAa7', // New FHEVMContract with withdrawETH functions
   chainId: Number((import.meta as any).env?.VITE_CHAIN_ID) || 11155111,
   networkName: (import.meta as any).env?.VITE_NETWORK_NAME as string || 'sepolia',
   
