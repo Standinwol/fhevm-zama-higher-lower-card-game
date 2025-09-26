@@ -1,0 +1,13 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "framework": "vite",
+  "env": {
+    "VITE_CONTRACT_ADDRESS": "0x4099E173d8fBC5499Ca6fdD0cBfe93524388B557",
+    "VITE_CHAIN_ID": "11155111",
+    "VITE_NETWORK_NAME": "sepolia",
+    "VITE_RPC_URL": "https://ethereum-sepolia-rpc.publicnode.com"
+  }
+}

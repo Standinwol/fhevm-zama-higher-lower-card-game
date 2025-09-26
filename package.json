@@ -1,0 +1,48 @@
+{
+  "name": "higher-lower-dapp",
+  "version": "1.0.0",
+  "description": "A decentralized Higher/Lower card game built on Ethereum blockchain",
+  "private": true,
+  "workspaces": [
+    "frontend-higher-lower",
+    "server"
+  ],
+  "scripts": {
+    "dev:frontend": "cd frontend-higher-lower && npm run dev",
+    "dev:backend": "cd server && npm run dev",
+    "build:frontend": "cd frontend-higher-lower && npm run build",
+    "install:all": "npm install && cd frontend-higher-lower && npm install && cd ../server && npm install",
+    "compile": "npx hardhat compile",
+    "test": "npx hardhat test",
+    "deploy:local": "npx hardhat run deploy/deploy.ts",
+    "deploy:sepolia": "npx hardhat run deploy/deploy-sepolia.cjs --network sepolia",
+    "clean": "npx hardhat clean && cd frontend-higher-lower && rm -rf dist node_modules && cd ../server && rm -rf node_modules"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "@types/node": "^20.9.0",
+    "dotenv": "^16.3.1",
+    "hardhat": "^2.19.0"
+  },
+  "keywords": [
+    "blockchain",
+    "ethereum",
+    "dapp",
+    "game",
+    "web3",
+    "smart-contracts",
+    "react",
+    "typescript"
+  ],
+  "author": "Standinwol",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Standinwol/higher-lower-dapp.git"
+  },
+  "dependencies": {
+    "@fhevm/solidity": "^0.7.0",
+    "@openzeppelin/confidential-contracts": "^0.2.0",
+    "@zama-fhe/oracle-solidity": "^0.0.1"
+  }
+}
